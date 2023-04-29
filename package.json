@@ -1,10 +1,10 @@
 {
-  "name": "@jiaminghi/data-view-react",
+  "name": "@zcg/data-view-react-plus",
   "version": "1.2.5",
   "description": "React Large screen data display component library",
-  "author": "Duan Yu <949267840@qq.com>",
+  "author": "zcg <408755140@qq.com>",
   "license": "MIT",
-  "repository": "DataV-Team/DataV-React",
+  "repository": "DataV-React-Plus",
   "main": "lib/index/index.js",
   "module": "es/index/index.js",
   "unpkg": "umd/datav.js",

@@ -8,8 +8,8 @@
     <a href="https://github.com/DataV-Team/Datav-React/blob/master/LICENSE">
       <img src="https://img.shields.io/github/license/DataV-Team/datav-react.svg" alt="LICENSE" />
     </a>
-    <a href="https://www.npmjs.com/package/@jiaminghi/data-view-react">
-      <img src="https://img.shields.io/npm/v/@jiaminghi/data-view-react.svg" alt="LICENSE" />
+    <a href="https://www.npmjs.com/package/data-view-react-plus">
+      <img src="https://img.shields.io/npm/v/data-view-react-plus.svg" alt="LICENSE" />
     </a>
 </p>
 
@@ -27,21 +27,21 @@
 ### npm 安装
 
 ```shell
-$ npm install @jiaminghi/data-view-react
+$ npm install data-view-react-plus
 ```
 
 ### 使用
 
 ```js
-import * as datav from "@jiaminghi/data-view-react";
+import * as datav from "data-view-react-plus";
 
 datav.BorderBox1;
 
 // 或者
-import { BorderBox1 } from "@jiaminghi/data-view-react";
+import { BorderBox1 } from "data-view-react-plus";
 
 // 按需引入
-import BorderBox1 from "@jiaminghi/data-view-react/es/borderBox1";
+import BorderBox1 from "data-view-react-plus/es/borderBox1";
 ```
 
 详细文档及示例请移步[HomePage](http://datav-react.jiaminghi.com).
