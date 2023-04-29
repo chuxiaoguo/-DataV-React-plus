@@ -121,7 +121,7 @@ function calcRows({ data, index, headerBGC, rowNum }) {
     data = data.map((row, i) => {
       row = [...row]
 
-      const indexTag = `<span class="index" style="background-color: ${headerBGC};">${i +
+      const indexTag = `<span class="index" style="background: ${headerBGC};">${i +
         1}</span>`
 
       row.unshift(indexTag)
@@ -151,262 +151,267 @@ function calcAligns(mergedConfig, header) {
   return deepMerge(aligns, align)
 }
 
-const ScrollBoard = forwardRef(({ onClick, config = {}, className, style, onMouseOver }, ref) => {
-  const { width, height, domRef } = useAutoResize(ref)
+const ScrollBoard = forwardRef(
+  ({ onClick, config = {}, className, style, onMouseOver }, ref) => {
+    const { width, height, domRef } = useAutoResize(ref)
 
-  const [state, setState] = useState({
-    mergedConfig: null,
+    const [state, setState] = useState({
+      mergedConfig: null,
 
-    header: [],
+      header: [],
 
-    rows: [],
+      rows: [],
 
-    widths: [],
+      widths: [],
 
-    heights: [],
+      heights: [],
 
-    aligns: []
-  })
+      aligns: []
+    })
 
-  const { mergedConfig, header, rows, widths, heights, aligns } = state
+    const { mergedConfig, header, rows, widths, heights, aligns } = state
 
-  const stateRef = useRef({
-    ...state,
-    rowsData: [],
-    avgHeight: 0,
-    animationIndex: 0
-  })
-
-  Object.assign(stateRef.current, state)
-
-  function onResize() {
-    if (!mergedConfig) return
-
-    const widths = calcWidths(mergedConfig, stateRef.current.rowsData)
-
-    const heights = calcHeights(mergedConfig, header)
-
-    const data = { widths, heights }
-
-    Object.assign(stateRef.current, data)
-    setState(state => ({ ...state, ...data }))
-  }
-
-  function calcData() {
-    const mergedConfig = deepMerge(
-      deepClone(defaultConfig, true),
-      config || {}
-    )
-
-    const header = calcHeaderData(mergedConfig)
-
-    const rows = calcRows(mergedConfig)
-
-    const widths = calcWidths(mergedConfig, stateRef.current.rowsData)
-
-    const heights = calcHeights(mergedConfig, header)
-
-    const aligns = calcAligns(mergedConfig, header)
-
-    const data = {
-      mergedConfig,
-      header,
-      rows,
-      widths,
-      aligns,
-      heights
-    }
-
-    Object.assign(stateRef.current, data, {
-      rowsData: rows,
+    const stateRef = useRef({
+      ...state,
+      rowsData: [],
+      avgHeight: 0,
       animationIndex: 0
     })
 
-    setState(state => ({ ...state, ...data }))
-  }
+    Object.assign(stateRef.current, state)
 
-  function calcWidths({ columnWidth, header }, rowsData) {
-    const usedWidth = columnWidth.reduce((all, w) => all + w, 0)
+    function onResize() {
+      if (!mergedConfig) return
 
-    let columnNum = 0
-    if (rowsData[0]) {
-      columnNum = rowsData[0].ceils.length
-    } else if (header.length) {
-      columnNum = header.length
+      const widths = calcWidths(mergedConfig, stateRef.current.rowsData)
+
+      const heights = calcHeights(mergedConfig, header)
+
+      const data = { widths, heights }
+
+      Object.assign(stateRef.current, data)
+      setState(state => ({ ...state, ...data }))
     }
 
-    const avgWidth = (width - usedWidth) / (columnNum - columnWidth.length)
+    function calcData() {
+      const mergedConfig = deepMerge(
+        deepClone(defaultConfig, true),
+        config || {}
+      )
 
-    const widths = new Array(columnNum).fill(avgWidth)
+      const header = calcHeaderData(mergedConfig)
 
-    return deepMerge(widths, columnWidth)
-  }
+      const rows = calcRows(mergedConfig)
 
-  function calcHeights({ headerHeight, rowNum, data }, header) {
-    let allHeight = height
+      const widths = calcWidths(mergedConfig, stateRef.current.rowsData)
 
-    if (header.length) allHeight -= headerHeight
+      const heights = calcHeights(mergedConfig, header)
 
-    const avgHeight = allHeight / rowNum
+      const aligns = calcAligns(mergedConfig, header)
 
-    Object.assign(stateRef.current, { avgHeight })
-
-    return new Array(data.length).fill(avgHeight)
-  }
-
-  function * animation(start = false) {
-    let {
-      avgHeight,
-      animationIndex,
-      mergedConfig: { waitTime, carousel, rowNum },
-      rowsData
-    } = stateRef.current
-
-    const rowLength = rowsData.length
-
-    if (start) yield new Promise(resolve => setTimeout(resolve, waitTime))
-
-    const animationNum = carousel === 'single' ? 1 : rowNum
-
-    let rows = rowsData.slice(animationIndex)
-    rows.push(...rowsData.slice(0, animationIndex))
-    rows = rows.slice(0, carousel === 'page' ? rowNum * 2 : rowNum + 1)
-
-    const heights = new Array(rowLength).fill(avgHeight)
-    setState(state => ({ ...state, rows, heights }))
-
-    yield new Promise(resolve => setTimeout(resolve, 300))
-
-    animationIndex += animationNum
-
-    const back = animationIndex - rowLength
-    if (back >= 0) animationIndex = back
-
-    const newHeights = [...heights]
-    newHeights.splice(0, animationNum, ...new Array(animationNum).fill(0))
-
-    Object.assign(stateRef.current, { animationIndex })
-    setState(state => ({ ...state, heights: newHeights }))
-  }
-
-  function emitEvent(handle, ri, ci, row, ceil) {
-    const { ceils, rowIndex } = row
-
-    handle && handle({ row: ceils, ceil, rowIndex, columnIndex: ci })
-  }
-
-  function handleHover(enter, ri, ci, row, ceil) {
-    if (enter) emitEvent(onMouseOver, ri, ci, row, ceil)
-
-    if (!mergedConfig.hoverPause) return
-
-    const { pause, resume } = task.current
-
-    enter && pause && resume ? pause() : (function() { if (resume) resume() })()
-  }
-
-  const getBackgroundColor = rowIndex =>
-    mergedConfig[rowIndex % 2 === 0 ? 'evenRowBGC' : 'oddRowBGC']
-
-  const task = useRef({})
-
-  useEffect(() => {
-    calcData()
-
-    let start = true
-
-    function * loop() {
-      while (true) {
-        yield * animation(start)
-
-        start = false
-
-        const { waitTime } = stateRef.current.mergedConfig
-
-        yield new Promise(resolve => setTimeout(resolve, waitTime - 300))
+      const data = {
+        mergedConfig,
+        header,
+        rows,
+        widths,
+        aligns,
+        heights
       }
+
+      Object.assign(stateRef.current, data, {
+        rowsData: rows,
+        animationIndex: 0
+      })
+
+      setState(state => ({ ...state, ...data }))
     }
 
-    const {
-      mergedConfig: { rowNum },
-      rows: rowsData
-    } = stateRef.current
+    function calcWidths({ columnWidth, header }, rowsData) {
+      const usedWidth = columnWidth.reduce((all, w) => all + w, 0)
 
-    const rowLength = rowsData.length
+      let columnNum = 0
+      if (rowsData[0]) {
+        columnNum = rowsData[0].ceils.length
+      } else if (header.length) {
+        columnNum = header.length
+      }
 
-    if (rowNum >= rowLength) return
+      const avgWidth = (width - usedWidth) / (columnNum - columnWidth.length)
 
-    task.current = co(loop)
+      const widths = new Array(columnNum).fill(avgWidth)
 
-    return task.current.end
-  }, [config, domRef.current])
+      return deepMerge(widths, columnWidth)
+    }
 
-  useEffect(onResize, [width, height, domRef.current])
+    function calcHeights({ headerHeight, rowNum, data }, header) {
+      let allHeight = height
 
-  const classNames = useMemo(() => classnames('dv-scroll-board', className), [
-    className
-  ])
+      if (header.length) allHeight -= headerHeight
 
-  return (
-    <div className={classNames} style={style} ref={domRef}>
-      {!!header.length && !!mergedConfig && (
-        <div
-          className='header'
-          style={{ backgroundColor: `${mergedConfig.headerBGC}` }}
-        >
-          {header.map((headerItem, i) => (
-            <div
-              className='header-item'
-              key={`${headerItem}-${i}`}
-              style={{
-                height: `${mergedConfig.headerHeight}px`,
-                lineHeight: `${mergedConfig.headerHeight}px`,
-                width: `${widths[i]}px`
-              }}
-              align={aligns[i]}
-              dangerouslySetInnerHTML={{ __html: headerItem }}
-            />
-          ))}
-        </div>
-      )}
+      const avgHeight = allHeight / rowNum
 
-      {!!mergedConfig && (
-        <div
-          className='rows'
-          style={{
-            height: `${height -
-              (header.length ? mergedConfig.headerHeight : 0)}px`
-          }}
-        >
-          {rows.map((row, ri) => (
-            <div
-              className='row-item'
-              key={`${row.toString()}-${row.scroll}`}
-              style={{
-                height: `${heights[ri]}px`,
-                lineHeight: `${heights[ri]}px`,
-                backgroundColor: `${getBackgroundColor(row.rowIndex)}`
-              }}
-            >
-              {row.ceils.map((ceil, ci) => (
-                <div
-                  className='ceil'
-                  key={`${ceil}-${ri}-${ci}`}
-                  style={{ width: `${widths[ci]}px` }}
-                  align={aligns[ci]}
-                  dangerouslySetInnerHTML={{ __html: ceil }}
-                  onClick={() => emitEvent(onClick, ri, ci, row, ceil)}
-                  onMouseEnter={() => handleHover(true, ri, ci, row, ceil)}
-                  onMouseLeave={() => handleHover(false)}
-                />
-              ))}
-            </div>
-          ))}
-        </div>
-      )}
-    </div>
-  )
-})
+      Object.assign(stateRef.current, { avgHeight })
+
+      return new Array(data.length).fill(avgHeight)
+    }
+
+    function * animation(start = false) {
+      let {
+        avgHeight,
+        animationIndex,
+        mergedConfig: { waitTime, carousel, rowNum },
+        rowsData
+      } = stateRef.current
+
+      const rowLength = rowsData.length
+
+      if (start) yield new Promise(resolve => setTimeout(resolve, waitTime))
+
+      const animationNum = carousel === 'single' ? 1 : rowNum
+
+      let rows = rowsData.slice(animationIndex)
+      rows.push(...rowsData.slice(0, animationIndex))
+      rows = rows.slice(0, carousel === 'page' ? rowNum * 2 : rowNum + 1)
+
+      const heights = new Array(rowLength).fill(avgHeight)
+      setState(state => ({ ...state, rows, heights }))
+
+      yield new Promise(resolve => setTimeout(resolve, 300))
+
+      animationIndex += animationNum
+
+      const back = animationIndex - rowLength
+      if (back >= 0) animationIndex = back
+
+      const newHeights = [...heights]
+      newHeights.splice(0, animationNum, ...new Array(animationNum).fill(0))
+
+      Object.assign(stateRef.current, { animationIndex })
+      setState(state => ({ ...state, heights: newHeights }))
+    }
+
+    function emitEvent(handle, ri, ci, row, ceil) {
+      const { ceils, rowIndex } = row
+
+      handle && handle({ row: ceils, ceil, rowIndex, columnIndex: ci })
+    }
+
+    function handleHover(enter, ri, ci, row, ceil) {
+      if (enter) emitEvent(onMouseOver, ri, ci, row, ceil)
+
+      if (!mergedConfig.hoverPause) return
+
+      const { pause, resume } = task.current
+
+      enter && pause && resume
+        ? pause()
+        : (function() {
+          if (resume) resume()
+        })()
+    }
+
+    const getBackgroundColor = rowIndex =>
+      mergedConfig[rowIndex % 2 === 0 ? 'evenRowBGC' : 'oddRowBGC']
+
+    const task = useRef({})
+
+    useEffect(() => {
+      calcData()
+
+      let start = true
+
+      function * loop() {
+        while (true) {
+          yield * animation(start)
+
+          start = false
+
+          const { waitTime } = stateRef.current.mergedConfig
+
+          yield new Promise(resolve => setTimeout(resolve, waitTime - 300))
+        }
+      }
+
+      const {
+        mergedConfig: { rowNum },
+        rows: rowsData
+      } = stateRef.current
+
+      const rowLength = rowsData.length
+
+      if (rowNum >= rowLength) return
+
+      task.current = co(loop)
+
+      return task.current.end
+    }, [config, domRef.current])
+
+    useEffect(onResize, [width, height, domRef.current])
+
+    const classNames = useMemo(() => classnames('dv-scroll-board', className), [
+      className
+    ])
+
+    return (
+      <div className={classNames} style={style} ref={domRef}>
+        {!!header.length && !!mergedConfig && (
+          <div
+            className='header'
+            style={{ background: `${mergedConfig.headerBGC}` }}
+          >
+            {header.map((headerItem, i) => (
+              <div
+                className='header-item'
+                key={`${headerItem}-${i}`}
+                style={{
+                  height: `${mergedConfig.headerHeight}px`,
+                  lineHeight: `${mergedConfig.headerHeight}px`,
+                  width: `${widths[i]}px`
+                }}
+                align={aligns[i]}
+                dangerouslySetInnerHTML={{ __html: headerItem }}
+              />
+            ))}
+          </div>
+        )}
+
+        {!!mergedConfig && (
+          <div
+            className='rows'
+            style={{
+              height: `${height -
+                (header.length ? mergedConfig.headerHeight : 0)}px`
+            }}
+          >
+            {rows.map((row, ri) => (
+              <div
+                className='row-item'
+                key={`${row.toString()}-${row.scroll}`}
+                style={{
+                  height: `${heights[ri]}px`,
+                  lineHeight: `${heights[ri]}px`,
+                  background: `${getBackgroundColor(row.rowIndex)}`
+                }}
+              >
+                {row.ceils.map((ceil, ci) => (
+                  <div
+                    className='ceil'
+                    key={`${ceil}-${ri}-${ci}`}
+                    style={{ width: `${widths[ci]}px` }}
+                    dangerouslySetInnerHTML={{ __html: ceil }}
+                    onClick={() => emitEvent(onClick, ri, ci, row, ceil)}
+                    onMouseEnter={() => handleHover(true, ri, ci, row, ceil)}
+                    onMouseLeave={() => handleHover(false)}
+                  />
+                ))}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+)
 
 ScrollBoard.propTypes = {
   config: PropTypes.object,
